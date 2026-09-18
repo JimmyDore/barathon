@@ -17,6 +17,11 @@ describe('format', () => {
 		expect(formatDistance(42)).toBe('40 m');
 		expect(formatDistance(3)).toBe('10 m');
 		expect(formatDistance(1234)).toBe('1,2 km');
+		expect(formatDistance(996)).toBe('1 km');
+		expect(formatDistance(9940)).toBe('9,9 km');
+		expect(formatDistance(9960)).toBe('10 km');
+		expect(formatDistance(274_812)).toBe('275 km');
+		expect(formatDistance(1_234_567).replace(/\s/g, ' ')).toBe('1 235 km');
 		expect(plural(1, 'passage')).toBe('1 passage');
 		expect(plural(3, 'passage')).toBe('3 passages');
 	});

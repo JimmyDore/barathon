@@ -5,6 +5,7 @@
 const decimal1 = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const euros = new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' });
 const km = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 });
+const kmWhole = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
 const dayMonthYear = new Intl.DateTimeFormat('fr-FR', {
 	day: 'numeric',
 	month: 'short',
@@ -37,11 +38,13 @@ export function formatDate(iso: string): string {
 	return dayMonthYear.format(new Date(Date.UTC(y, m - 1, d)));
 }
 
-/** 42 → « 40 m » ; 1234 → « 1,2 km ». */
+/** 42 → « 40 m » ; 1234 → « 1,2 km » ; 274 812 → « 275 km ». */
 export function formatDistance(meters: number | null | undefined): string {
 	if (meters === null || meters === undefined || !Number.isFinite(meters)) return '';
-	if (meters < 1000) return `${Math.max(10, Math.round(meters / 10) * 10)} m`;
-	return `${km.format(meters / 1000)} km`;
+	const m = Math.max(10, Math.round(meters / 10) * 10);
+	if (m < 1000) return `${m} m`;
+	// Au-delà de 10 km, la décimale n'apporte rien (« 274,8 km »).
+	return `${meters < 9950 ? km.format(meters / 1000) : kmWhole.format(meters / 1000)} km`;
 }
 
 /** « 1 passage », « 3 passages ». */
