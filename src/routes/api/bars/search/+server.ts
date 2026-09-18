@@ -14,7 +14,7 @@ export const GET: RequestHandler = ({ url }) => {
 	const sourceIds = (url.searchParams.get('source_ids') ?? '')
 		.split(',')
 		.map((s) => s.trim())
-		.filter((s) => /^(node|way|relation)\/\d+$/.test(s))
+		.filter((s) => /^(node|way|relation)\/\d{1,15}$/.test(s))
 		.slice(0, 50);
 
 	const byText = store.searchBars(q, 8);

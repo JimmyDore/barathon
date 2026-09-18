@@ -188,7 +188,7 @@ export function parseVisitForm(src: FormSource, { today }: ParseVisitOptions): P
 		const slug = raw.trim();
 		if (slug === '') continue;
 		if (!(AMBIANCE_SLUGS as readonly string[]).includes(slug)) {
-			errors.ambiances = `Ambiance inconnue : ${slug}.`;
+			errors.ambiances = `Ambiance inconnue : ${slug.slice(0, 30)}.`;
 			continue;
 		}
 		if (!ambiances.includes(slug as AmbianceSlug)) ambiances.push(slug as AmbianceSlug);
@@ -279,7 +279,8 @@ export type BarChoice =
 
 export type BarChoiceResult = { ok: true; value: BarChoice } | { ok: false; error: string };
 
-const OSM_ID = /^(node|way|relation)\/\d+$/;
+/** Identifiant OSM (`node/123`) ; longueur bornée : ce texte finit en base. */
+const OSM_ID = /^(node|way|relation)\/\d{1,15}$/;
 
 export function parseBarName(raw: string | null): { ok: true; value: string } | { ok: false; error: string } {
 	const name = (raw ?? '').trim().replace(/\s+/g, ' ');
@@ -325,7 +326,7 @@ export function parseBarChoice(src: FormSource): BarChoiceResult {
 	const F = BAR_FIELDS;
 	const rawId = (getField(src, F.barId) ?? '').trim();
 	if (rawId !== '') {
-		if (!/^\d+$/.test(rawId) || Number(rawId) <= 0) return { ok: false, error: 'Bar inconnu.' };
+		if (!/^\d{1,15}$/.test(rawId) || Number(rawId) <= 0) return { ok: false, error: 'Bar inconnu.' };
 		return { ok: true, value: { kind: 'existing', barId: Number(rawId) } };
 	}
 

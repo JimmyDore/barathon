@@ -189,6 +189,7 @@ describe('parseBarChoice', () => {
 			value: { kind: 'existing', barId: 12 }
 		});
 		expect(parseBarChoice({ bar_id: 'abc' }).ok).toBe(false);
+		expect(parseBarChoice({ bar_id: '9'.repeat(40) }).ok).toBe(false);
 	});
 
 	it('reads an OSM place', () => {
@@ -218,6 +219,9 @@ describe('parseBarChoice', () => {
 	it('rejects a malformed OSM id', () => {
 		const res = parseBarChoice({ source: 'osm', source_id: '123', name: 'X', lat: 1, lon: 1 });
 		expect(res.ok).toBe(false);
+		// Un identifiant démesuré ne finit pas en base.
+		const long = parseBarChoice({ source: 'osm', source_id: `node/${'1'.repeat(5000)}`, name: 'X', lat: 1, lon: 1 });
+		expect(long.ok).toBe(false);
 	});
 
 	it('reads a manual bar and requires a name and a position', () => {
