@@ -24,3 +24,6 @@ vite.config.ts.timestamp-*
 
 # Données locales (SQLite)
 /data
+
+# Claude Code (worktrees des agents, réglages locaux)
+.claude/
