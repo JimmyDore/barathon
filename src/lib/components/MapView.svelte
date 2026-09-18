@@ -373,11 +373,20 @@
 		outline-offset: 3px;
 	}
 
+	/* MapLibre place l'épingle avec un `transform` en ligne sur cet élément racine :
+	   pas de transition ni de transform ici (sinon l'épingle traîne derrière le doigt),
+	   l'effet « soulevée » se fait sur le SVG intérieur. */
 	.map-view :global(.bm-pin) {
 		width: 40px;
 		height: 52px;
 		cursor: grab;
 		filter: drop-shadow(0 4px 4px rgb(0 0 0 / 0.4));
+	}
+	.map-view :global(.bm-pin svg) {
+		display: block;
+		width: 100%;
+		height: 100%;
+		transform-origin: 50% 100%;
 		transition: transform 140ms var(--ease-out);
 	}
 	.map-view :global(.bm-pin path) {
@@ -390,6 +399,8 @@
 	}
 	.map-view :global(.bm-pin.is-dragging) {
 		cursor: grabbing;
+	}
+	.map-view :global(.bm-pin.is-dragging svg) {
 		transform: translateY(-10px) scale(1.08);
 	}
 
