@@ -142,8 +142,8 @@
 			<path class="glass" d="M7 5h34l-3.7 51.6a3 3 0 0 1-3 2.8H13.7a3 3 0 0 1-3-2.8z" />
 			<path class="foam" d="M9 15h30" />
 		</svg>
-		<h2>La carte est encore vide</h2>
-		<p class="muted">Personne n’a noté de bar pour l’instant. Commence par celui où tu trinques, les potes suivront.</p>
+		<h2>Aucun bar noté pour l’instant</h2>
+		<p class="muted">Ouvre le bal : note le bar où tu trinques, les potes suivront.</p>
 		<Button href="/noter" size="lg" full>Noter le premier bar</Button>
 	</div>
 {/snippet}
@@ -221,7 +221,7 @@
 	</div>
 
 	{#if view === 'classement'}
-		<section class="ranking container" aria-labelledby="classement-titre">
+		<section class="ranking container" class:bare={!hasBars} aria-labelledby="classement-titre">
 			<header class="ranking-head">
 				<h1 id="classement-titre">Classement</h1>
 				{#if hasBars}<p class="muted">{summary}</p>{/if}
@@ -259,8 +259,8 @@
 
 <style>
 	.home {
-		/* ce qu'il faut laisser libre en bas de la carte pour la mention OSM */
-		--attribution-clear: calc(env(safe-area-inset-bottom) + 2.25rem);
+		/* ce qu'il faut laisser libre en bas de la carte pour la mention OSM (2 lignes à 360 px) */
+		--attribution-clear: calc(env(safe-area-inset-bottom) + 2.75rem);
 		position: relative;
 	}
 	.home.is-map {
@@ -474,6 +474,9 @@
 	.ranking {
 		padding-top: var(--space-2);
 		padding-bottom: calc(var(--tap-lg) + var(--space-7) + env(safe-area-inset-bottom));
+	}
+	.ranking.bare {
+		padding-top: var(--space-5);
 	}
 	.ranking-head {
 		display: flex;
