@@ -19,10 +19,13 @@
 	}
 </script>
 
-<svelte:head>
-	<title>Barathon</title>
-</svelte:head>
-
+<!--
+  Pas de <title> ici : chaque page (et chaque +error.svelte) pose le sien.
+  En SSR, Svelte garde un seul <title> choisi par position dans l'arbre, et une
+  page qui fait un bind: sur un composant enfant est rendue dans une copie hors
+  de l'arbre : le <title> du layout gagnait alors, et la page s'affichait
+  « Barathon » jusqu'au chargement du JS.
+-->
 <a class="skip" href="#contenu">Aller au contenu</a>
 
 <header class="site-header">
