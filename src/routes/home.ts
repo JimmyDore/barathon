@@ -206,12 +206,27 @@ export interface Bounds {
 
 const TILE_PX = 512; // MapLibre : le monde fait 512 px de large au zoom 0
 
+/** Position en px dans le monde (Web Mercator) au zoom donné. */
+function worldPx(p: LatLon, world: number): { x: number; y: number } {
+	const sin = Math.sin((p.lat * Math.PI) / 180);
+	return {
+		x: ((p.lon + 180) / 360) * world,
+		y: (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * world
+	};
+}
+
+/** Où tombe un point sur la carte (px depuis le coin haut gauche) pour ce centre et ce zoom. */
+export function toScreen(p: LatLon, center: LatLon, zoom: number, widthPx: number, heightPx: number) {
+	const world = TILE_PX * 2 ** zoom;
+	const a = worldPx(p, world);
+	const c = worldPx(center, world);
+	return { x: a.x - c.x + widthPx / 2, y: a.y - c.y + heightPx / 2 };
+}
+
 /** Emprise approximative de la carte (Web Mercator) pour un centre, un zoom et une taille en px. */
 export function viewBounds(center: LatLon, zoom: number, widthPx: number, heightPx: number): Bounds {
 	const world = TILE_PX * 2 ** zoom;
-	const x = ((center.lon + 180) / 360) * world;
-	const sin = Math.sin((center.lat * Math.PI) / 180);
-	const y = (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * world;
+	const { x, y } = worldPx(center, world);
 	const lon = (px: number) => (px / world) * 360 - 180;
 	const lat = (py: number) => (Math.atan(Math.sinh(Math.PI - (2 * Math.PI * py) / world)) * 180) / Math.PI;
 	return {
@@ -225,3 +240,49 @@ export function viewBounds(center: LatLon, zoom: number, widthPx: number, height
 export function isInBounds(p: LatLon, b: Bounds): boolean {
 	return p.lat >= b.south && p.lat <= b.north && p.lon >= b.west && p.lon <= b.east;
 }
+
+/**
+ * Zone par défaut de la carte (SPEC) : de Nantes à La Roche-sur-Yon.
+ * Son milieu est `GEO.defaultCenter` ; on la cadre dans la partie libre de l'écran.
+ */
+export const DEFAULT_ZONE: readonly LatLon[] = [
+	{ lat: 47.2184, lon: -1.5536 }, // Nantes
+	{ lat: 46.6705, lon: -1.4263 } // La Roche-sur-Yon
+];
+
+export interface Padding {
+	top: number;
+	right: number;
+	bottom: number;
+	left: number;
+}
+
+/**
+ * Centre et zoom pour voir tous ces points dans la partie libre de la carte
+ * (hors barre du haut, bouton du bas…), sans dépasser `maxZoom`.
+ */
+export function fitView(
+	points: readonly LatLon[],
+	widthPx: number,
+	heightPx: number,
+	padding: Padding,
+	maxZoom: number
+): { center: LatLon; zoom: number } | null {
+	if (points.length === 0 || widthPx <= 0 || heightPx <= 0) return null;
+	const at0 = points.map((p) => worldPx(p, TILE_PX));
+	const xs = at0.map((p) => p.x);
+	const ys = at0.map((p) => p.y);
+	const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+	const freeW = Math.max(1, widthPx - padding.left - padding.right);
+	const freeH = Math.max(1, heightPx - padding.top - padding.bottom);
+	const fit = Math.min(x1 > x0 ? freeW / (x1 - x0) : Infinity, y1 > y0 ? freeH / (y1 - y0) : Infinity);
+	const zoom = Math.min(maxZoom, Math.log2(fit));
+	const scale = 2 ** zoom;
+	// décale le centre pour que la boîte tombe au milieu de la zone libre
+	const cx = (x0 + x1) / 2 - (padding.left - padding.right) / 2 / scale;
+	const cy = (y0 + y1) / 2 - (padding.top - padding.bottom) / 2 / scale;
+	const lon = (cx / TILE_PX) * 360 - 180;
+	const lat = (Math.atan(Math.sinh(Math.PI - (2 * Math.PI * cy) / TILE_PX)) * 180) / Math.PI;
+	return { center: { lat, lon }, zoom };
+}
+

@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { summarizeVisits } from '$lib/stats';
 import type { BarSummary } from '$lib/types';
 import type { VisitInput } from '$lib/validation';
+import { GEO } from '$lib/constants';
 import {
+	DEFAULT_ZONE,
 	NO_FILTERS,
 	countActiveFilters,
 	filterBars,
+	fitView,
 	homeHref,
 	isInBounds,
 	normalizeAmbiances,
@@ -18,6 +21,7 @@ import {
 	sameFilters,
 	sliderToPrice,
 	toHomeBar,
+	toScreen,
 	viewBounds,
 	type HomeBar
 } from './home';
@@ -219,5 +223,48 @@ describe('viewBounds', () => {
 		expect(isInBounds({ lat: 46.6705, lon: -1.426 }, b)).toBe(false); // La Roche-sur-Yon
 		expect(b.east - b.west).toBeGreaterThan(0.005);
 		expect(b.east - b.west).toBeLessThan(0.02);
+	});
+	it('projects a point to screen pixels', () => {
+		const center = { lat: 47.2184, lon: -1.5536 };
+		expect(toScreen(center, center, 15, 390, 780)).toEqual({ x: 195, y: 390 });
+		const north = toScreen({ lat: 47.2284, lon: -1.5536 }, center, 15, 390, 780);
+		expect(north.x).toBeCloseTo(195);
+		expect(north.y).toBeLessThan(390);
+		const b = viewBounds(center, 15, 390, 780);
+		const corner = toScreen({ lat: b.south, lon: b.east }, center, 15, 390, 780);
+		expect(corner.x).toBeCloseTo(390, 3);
+		expect(corner.y).toBeCloseTo(780, 3);
+	});
+	it('fits points inside the free part of the map', () => {
+		const nantes = { lat: 47.2184, lon: -1.5536 };
+		const laRoche = { lat: 46.6705, lon: -1.426 };
+		const pad = { top: 120, right: 40, bottom: 110, left: 40 };
+		const view = fitView([nantes, laRoche], 390, 788, pad, 15)!;
+		for (const p of [nantes, laRoche]) {
+			const { x, y } = toScreen(p, view.center, view.zoom, 390, 788);
+			expect(x).toBeGreaterThanOrEqual(pad.left - 0.5);
+			expect(x).toBeLessThanOrEqual(390 - pad.right + 0.5);
+			expect(y).toBeGreaterThanOrEqual(pad.top - 0.5);
+			expect(y).toBeLessThanOrEqual(788 - pad.bottom + 0.5);
+		}
+		// l'axe qui contraint est rempli (nord-sud ici)
+		const top = toScreen(nantes, view.center, view.zoom, 390, 788).y;
+		const bottom = toScreen(laRoche, view.center, view.zoom, 390, 788).y;
+		expect(top).toBeCloseTo(pad.top, 3);
+		expect(bottom).toBeCloseTo(788 - pad.bottom, 3);
+	});
+	it('caps the zoom for a single point and centers it in the free area', () => {
+		const p = { lat: 47.2, lon: -1.55 };
+		const view = fitView([p], 390, 788, { top: 120, right: 0, bottom: 100, left: 0 }, 15)!;
+		expect(view.zoom).toBe(15);
+		expect(toScreen(p, view.center, 15, 390, 788).y).toBeCloseTo(120 + (788 - 220) / 2, 3);
+		expect(fitView([], 390, 788, { top: 0, right: 0, bottom: 0, left: 0 }, 15)).toBeNull();
+	});
+	it('default zone is centered on GEO.defaultCenter', () => {
+		const view = fitView(DEFAULT_ZONE, 390, 788, { top: 0, right: 0, bottom: 0, left: 0 }, 11)!;
+		expect(Math.abs(view.center.lat - GEO.defaultCenter.lat)).toBeLessThan(0.05);
+		expect(Math.abs(view.center.lon - GEO.defaultCenter.lon)).toBeLessThan(0.05);
+		expect(view.zoom).toBeGreaterThan(8.5);
+		expect(view.zoom).toBeLessThan(9.5);
 	});
 });
