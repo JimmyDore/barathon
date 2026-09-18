@@ -28,7 +28,9 @@
 			criteria: CRITERIA.filter((c) => c.block === b.key).map((c) => ({
 				key: c.key,
 				label: c.label,
-				score: bar.score.criteria[c.key]
+				score: bar.score.criteria[c.key],
+				// Terrasse sans note parce que le bar n'en a pas : on le dit plutôt que « pas testé ».
+				empty: c.key === 'terrasse' && bar.terrace === 'non' ? 'pas de terrasse' : 'pas testé'
 			}))
 		}))
 	);
@@ -82,7 +84,7 @@
 					{#each b.criteria as c (c.key)}
 						<div class="leader crit" class:untested={c.score === null}>
 							<span>{c.label}</span>
-							<span class="crit-score">{c.score === null ? 'pas testé' : formatScore(c.score)}</span>
+							<span class="crit-score">{c.score === null ? c.empty : formatScore(c.score)}</span>
 						</div>
 					{/each}
 				</div>
