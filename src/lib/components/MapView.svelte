@@ -316,8 +316,11 @@
 
 	/* ---------- Pastilles (créées hors Svelte : styles globaux) ---------- */
 
+	/* MapLibre place la pastille avec un transform en ligne : elle doit rester en
+	   position absolute (comme .maplibregl-marker) et on ne touche ni à transform
+	   ni à sa transition (sinon les pastilles s'empilent ou traînent derrière la carte). */
 	.map-view :global(.bm-marker) {
-		position: relative;
+		position: absolute;
 		display: grid;
 		place-items: center;
 		min-width: 40px;
@@ -335,7 +338,6 @@
 		font-variant-numeric: tabular-nums;
 		cursor: pointer;
 		box-shadow: 0 3px 8px rgb(0 0 0 / 0.35);
-		transition: transform 140ms var(--ease-out);
 	}
 	/* zone tactile élargie à ~48px */
 	.map-view :global(.bm-marker::before) {
@@ -362,7 +364,9 @@
 	}
 	.map-view :global(.bm-marker.is-selected) {
 		z-index: 2;
-		transform: scale(1.22);
+		min-width: 48px;
+		height: 36px;
+		font-size: 21px;
 		border-color: var(--foam);
 	}
 	.map-view :global(.bm-marker.is-selected::after) {
