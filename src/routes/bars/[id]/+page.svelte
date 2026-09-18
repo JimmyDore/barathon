@@ -64,8 +64,10 @@
 			<p class="basis">
 				{#if bar.overall === null}
 					Pas encore noté
+				{:else if bar.visitCount === 1}
+					Note d’un seul passage
 				{:else}
-					Moyenne de {plural(bar.visitCount, 'passage')}
+					Moyenne de {bar.visitCount} passages
 				{/if}
 			</p>
 		</div>
