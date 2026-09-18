@@ -1,0 +1,5 @@
+# Sauvegarde nocturne de barathon vers Cloudflare R2 (installé par la CI).
+# 02:30, décalé du backup credit-ado de 02:00.
+SHELL=/bin/bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+30 2 * * * root /root/barathon/deploy/backup.sh >> /var/log/barathon-backup.log 2>&1

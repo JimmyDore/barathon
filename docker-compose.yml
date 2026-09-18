@@ -1,0 +1,41 @@
+# Stack barathon.jimmydore.fr — un seul service Node (SvelteKit adapter-node).
+# Pas de ports publiés : le trafic arrive via le Caddy partagé (stack
+# ravetycoon) qui fait le TLS et reverse-proxy vers barathon-web:3000 sur le
+# réseau Docker `ravetycoon_default`.
+#
+# ATTENTION : le service est préfixé `barathon-` à dessein. Le réseau est
+# partagé avec la stack ravetycoon, qui expose déjà les alias DNS `web` et
+# `api` ; un service nommé `web` ou `api` ici capterait le trafic de l'autre
+# stack.
+#
+# `.env` (non versionné) est écrit par la CI et contient ADMIN_PASSWORD.
+# La base SQLite (barathon.db) vit sur l'hôte dans /root/barathon-data, qui
+# doit appartenir à l'uid 1000 (utilisateur `node` du conteneur).
+services:
+  barathon-web:
+    build:
+      context: .
+      dockerfile: deploy/Dockerfile
+    image: barathon-web
+    container_name: barathon-web
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      HOST: 0.0.0.0
+      ORIGIN: https://barathon.jimmydore.fr
+      DATA_DIR: /data
+      # Caddy remplace X-Forwarded-For par l'IP du client : une seule
+      # entrée à lire, la plus à droite.
+      ADDRESS_HEADER: X-Forwarded-For
+      XFF_DEPTH: "1"
+      TZ: Europe/Paris
+    volumes:
+      - /root/barathon-data:/data
+    networks:
+      - ravetycoon_default
+
+networks:
+  ravetycoon_default:
+    external: true
