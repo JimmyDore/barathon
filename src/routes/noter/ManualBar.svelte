@@ -17,7 +17,7 @@
 	interface Props {
 		/** Position du téléphone (null tant qu'on ne l'a pas). */
 		pos: LatLon | null;
-		/** La géoloc est refusée ou impossible. */
+		/** La géoloc est refusée (par un vrai essai, pas d'après la Permissions API) ou impossible. */
 		geoBlocked: boolean;
 		/** Nom prérempli (ce qui était tapé dans la recherche). */
 		initialName?: string;

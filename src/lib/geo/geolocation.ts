@@ -1,8 +1,13 @@
 /**
- * Position du téléphone pour « Autour de moi » et l'épingle du bar ajouté à la main.
+ * Position du téléphone : « Autour de moi », l'épingle du bar ajouté à la main, le « Me localiser » de la carte.
  * Petite couche autour de `navigator.geolocation` : promesse + erreurs typées + messages en français.
+ *
+ * Seul un vrai `getCurrentPosition` dit si la position est refusée. `navigator.permissions` n'est
+ * qu'un indice : sur iPhone, Chrome (et les autres navigateurs tiers) répondent `denied` avant même
+ * d'avoir posé la question. On ne s'en sert donc que pour localiser sans attendre un tap quand
+ * c'est déjà `granted`, jamais pour renoncer à demander.
  */
-import type { LatLon } from '$lib/geo/distance';
+import type { LatLon } from './distance';
 
 export type GeoErrorKind = 'unsupported' | 'denied' | 'unavailable' | 'timeout';
 
@@ -50,6 +55,7 @@ export type GeoPermission = 'granted' | 'denied' | 'prompt' | 'unknown';
 /**
  * État de la permission sans rien demander à l'utilisateur
  * ('unknown' si le navigateur ne sait pas le dire, ex. vieux Safari).
+ * Pas fiable quand il dit `denied` (cf. en-tête) : voir `initialGeoStep`.
  */
 export async function geoPermission(
 	perms: PermissionsLike | undefined = globalThis.navigator?.permissions
@@ -65,11 +71,23 @@ export async function geoPermission(
 	}
 }
 
+/**
+ * Que faire en arrivant sur la page, avant tout tap ?
+ * - `locate` : c'est déjà autorisé, on cherche la position tout de suite ;
+ * - `ask` : on affiche le bouton, le tap lancera le vrai `getCurrentPosition`
+ *   (aussi quand la permission dit `denied` : iOS le dit avant d'avoir demandé) ;
+ * - `unsupported` : le navigateur n'a pas de géolocalisation du tout.
+ */
+export function initialGeoStep(perm: GeoPermission, supported: boolean): 'locate' | 'ask' | 'unsupported' {
+	if (!supported) return 'unsupported';
+	return perm === 'granted' ? 'locate' : 'ask';
+}
+
 /** Ce qu'on dit quand la position ne vient pas. */
 export function geoErrorMessage(kind: GeoErrorKind): string {
 	switch (kind) {
 		case 'denied':
-			return 'Position refusée, pas de souci : cherche le bar par son nom. (Pour la réactiver, ça se passe dans les réglages du navigateur.)';
+			return 'Position refusée. Sur iPhone : Réglages › Apps › Chrome (ou Safari) › Position › « Lorsque l’app est active », puis autorise le site. En attendant, cherche le bar par son nom.';
 		case 'unsupported':
 			return 'Ton navigateur ne donne pas ta position. Cherche le bar par son nom.';
 		case 'timeout':
@@ -79,7 +97,19 @@ export function geoErrorMessage(kind: GeoErrorKind): string {
 	}
 }
 
-/** Réessayer a-t-il un sens ? (Pas si c'est refusé ou impossible.) */
+/**
+ * Réessayer a-t-il un sens ? Oui, même après un refus : la personne vient peut-être
+ * de changer ses réglages. Pas si le navigateur n'a pas de géolocalisation.
+ */
 export function canRetry(kind: GeoErrorKind): boolean {
-	return kind === 'timeout' || kind === 'unavailable';
+	return kind !== 'unsupported';
+}
+
+/**
+ * Faut-il arrêter de demander la position sans qu'on nous le demande (ex. en ouvrant
+ * « Ajouter un bar ») ? Oui après un vrai refus, pour ne pas harceler ; le bouton
+ * « Réessayer » reste là pour qui a changé d'avis.
+ */
+export function stopAsking(kind: GeoErrorKind): boolean {
+	return kind === 'denied' || kind === 'unsupported';
 }

@@ -11,7 +11,16 @@
 	import { GEO } from '$lib/constants';
 	import type { LatLon } from '$lib/geo/distance';
 	import type { PlaceOption } from '$lib/geo/merge';
-	import { canRetry, GeoError, geoErrorMessage, geoPermission, getPosition, type GeoErrorKind } from './geolocation';
+	import {
+		canRetry,
+		GeoError,
+		geoErrorMessage,
+		geoPermission,
+		getPosition,
+		initialGeoStep,
+		stopAsking,
+		type GeoErrorKind
+	} from '$lib/geo/geolocation';
 	import ManualBar from './ManualBar.svelte';
 	import PlaceList from './PlaceList.svelte';
 	import { noterState } from './state';
@@ -34,7 +43,8 @@
 
 	let geo = $state<Geo>({ status: 'idle' });
 	const pos = $derived(geo.status === 'ok' ? geo.pos : null);
-	const geoBlocked = $derived(geo.status === 'error' && !canRetry(geo.kind));
+	/** Plus de demande automatique (« Ajouter un bar ») : refus réel ou pas de géoloc. */
+	const geoBlocked = $derived(geo.status === 'error' && stopAsking(geo.kind));
 
 	let near = $state<{ loading: boolean; options: PlaceOption[] | null; providerError: boolean }>({
 		loading: false,
@@ -69,11 +79,13 @@
 
 	onMount(() => {
 		// On ne demande rien d'office : si c'est déjà autorisé on y va, sinon on attend un tap.
+		// Un `denied` de la Permissions API ne compte pas (iOS le dit avant d'avoir demandé) :
+		// seul le vrai getCurrentPosition, lancé par le bouton, peut afficher « Position refusée ».
 		geoPermission().then((perm) => {
 			if (geo.status !== 'idle') return;
-			if (perm === 'granted') locate();
-			else if (perm === 'denied') geo = { status: 'error', kind: 'denied' };
-			else if (!('geolocation' in navigator)) geo = { status: 'error', kind: 'unsupported' };
+			const step = initialGeoStep(perm, 'geolocation' in navigator);
+			if (step === 'locate') locate();
+			else if (step === 'unsupported') geo = { status: 'error', kind: 'unsupported' };
 		});
 		return () => nearCtrl?.abort();
 	});

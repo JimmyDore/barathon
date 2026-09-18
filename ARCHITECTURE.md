@@ -52,6 +52,7 @@ src/
       distance.ts       haversine
       provider.ts       THE search provider (Photon). Only file to rewrite to switch provider
       merge.ts          merge provider places with our bars
+      geolocation.ts    phone position (getPosition, typed errors, French messages), browser only at call time
     client/             browser-only helpers
       storage.ts        localStorage: pseudo + author tokens
       map.ts            MapLibre loader, OpenFreeMap styles (slate restyle)
@@ -235,6 +236,8 @@ Visit form field names: `pseudo`, `date`, `beaute`, `emplacement`, `terrasse` (`
 - Errors: `ProviderError` with `kind: 'network' | 'timeout' | 'http' | 'aborted'` (ignore `aborted`: that's your own AbortController).
 - `Place = { sourceId, name, address, lat, lon, category, distance }`. Also `haversine(a, b)` (m), `LatLon`, `parsePhotonFeature`, `rankByProximity`, `PROVIDER_NAME`.
 
+`geolocation.ts`: `getPosition(options?, geo?)` → `Promise<LatLon>`, rejects with `GeoError` (`kind: 'unsupported' | 'denied' | 'unavailable' | 'timeout'`); `geoPermission()` (`'granted' | 'denied' | 'prompt' | 'unknown'`, never prompts); `initialGeoStep(perm, supported)` (`'locate' | 'ask' | 'unsupported'`); `geoErrorMessage(kind)`; `canRetry(kind)` (everything but `unsupported`: after a denial the user may have just changed their settings); `stopAsking(kind)` (`denied`/`unsupported`: don't ask again unprompted). Used by `/noter` and `MapView`. **Never skip asking because `navigator.permissions` says `denied`**: Chrome and the other third-party browsers on iOS say so before the user was ever prompted. Only a real `getCurrentPosition` failure counts as a refusal; the query may only be used to locate without a tap when it says `granted`.
+
 `merge.ts`: `PlaceOption = { key, barId, source, sourceId, name, address, lat, lon, category, distance, overall, visitCount }` (`barId` null = not in our DB yet). `mergeNearby(places, ours, origin, { radiusM, limit })` (dedupe by `sourceId`, our bar wins, sort by distance, keep 5), `mergeSearch(places, ours, origin, limit)` (our text matches first, provider results with our bars substituted), `optionToFormFields(option)` (hidden fields for the visit form), `barToOption`, `placeToOption`.
 
 ## Browser helpers (`$lib/client/*`)
@@ -269,7 +272,7 @@ All are mobile-first, keyboard-accessible, and themed by the tokens.
 | `TerraceInput` | `bind:value` (`null \| 0 \| 1..5`), `name?='terrasse'`, `label?`, `error?`, `onchange?` | Adds a "Pas de terrasse" chip (value 0, submitted as `none`). |
 | `MoodPicker` | `bind:value`, `name?='humeur'`, `label?='Mon humeur'`, `error?`, `onchange?` | 😫 😕 😐 🙂 🤩, clearable. |
 | `AmbiancePicker` | `bind:value` (`string[]` of slugs), `name?='ambiances'`, `label?`, `error?`, `onchange?` | Chips. Pass `name=""` to use it as a filter without submitting. |
-| `MapView` | `center?`, `zoom?`, `markers?: MapMarker[]`, `selectedId?`, `onmarkerclick?`, `bind:pin?` (`LatLon \| null`), `pinDraggable?`, `onpinchange?`, `locate?`, `onlocate?`, `onlocateerror?`, `onmapclick?`, `onmoveend?`, `onready?`, `label?`, `class?` | Needs a sized parent. `MapMarker = { id, lat, lon, score?, title? }`. Methods via `bind:this`: `flyTo(pos, zoom?)`, `fitTo(points, maxZoom?)`, `getCenter()`, `locateMe()`. `locate` adds the geolocate button and centers on the user at load (falls back to `center` if refused). OSM attribution is always visible. Follows light/dark automatically. |
+| `MapView` | `center?`, `zoom?`, `markers?: MapMarker[]`, `selectedId?`, `onmarkerclick?`, `bind:pin?` (`LatLon \| null`), `pinDraggable?`, `onpinchange?`, `locate?`, `onlocate?`, `onlocateerror?`, `onmapclick?`, `onmoveend?`, `onready?`, `label?`, `class?` | Needs a sized parent. `MapMarker = { id, lat, lon, score?, title? }`. Methods via `bind:this`: `flyTo(pos, zoom?)`, `fitTo(points, maxZoom?)`, `getCenter()`, `locateMe()`. `locate` adds a « Me localiser » button (bottom right, our own control, not MapLibre's `GeolocateControl`, which gives up when the Permissions API says `denied`) and asks for the position once at load whatever the permission state; on success it flies to the user (zoom 15) and shows a dot, on failure it stays on `center` silently. OSM attribution is always visible. Follows light/dark automatically. |
 | `PintCelebration` | `open`, `score?`, `title?='Santé !'`, `message?`, `ondone?`, children (actions) | Full-screen pint-filling animation (~1.6 s, instant with reduced motion), then `ondone()`. |
 
 ## Design system

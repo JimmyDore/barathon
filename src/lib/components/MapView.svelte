@@ -4,8 +4,9 @@
 
   - `markers` : pastilles colorées selon la note ; clic → `onmarkerclick(marker)`.
   - `pin` (bindable) : épingle ambre déplaçable ; `onpinchange` à chaque dépôt.
-  - `locate` : bouton de géolocalisation + centrage sur l'utilisateur au chargement.
-  - Méthodes (via bind:this) : flyTo(point, zoom?), fitTo(points), getCenter().
+  - `locate` : bouton « Me localiser » + centrage sur l'utilisateur au chargement (point « ta position »).
+    Toujours un vrai getCurrentPosition, jamais d'après la Permissions API (fausse sur iPhone, cf. $lib/geo/geolocation).
+  - Méthodes (via bind:this) : flyTo(point, zoom?), fitTo(points), getCenter(), locateMe().
   Mention « © OpenStreetMap contributors » toujours visible.
 
   Usage :
@@ -27,11 +28,12 @@
 <script lang="ts">
 	import 'maplibre-gl/dist/maplibre-gl.css';
 	import { onMount } from 'svelte';
-	import type { GeolocateControl, Map as MlMap, Marker as MlMarker } from 'maplibre-gl';
+	import type { IControl, Map as MlMap, Marker as MlMarker } from 'maplibre-gl';
 	import { currentTheme, loadMaplibre, loadMapStyle } from '$lib/client/map';
 	import { GEO } from '$lib/constants';
 	import { formatScore, scoreColor } from '$lib/format';
 	import type { LatLon } from '$lib/geo/distance';
+	import { getPosition } from '$lib/geo/geolocation';
 
 	interface Props {
 		/** Centre initial (défaut : Nantes – La Roche-sur-Yon). */
@@ -83,8 +85,6 @@
 	/** Textes des contrôles MapLibre (anglais par défaut). */
 	const MAP_LOCALE = {
 		'AttributionControl.ToggleAttribution': 'Afficher ou masquer les crédits',
-		'GeolocateControl.FindMyLocation': 'Me localiser',
-		'GeolocateControl.LocationNotAvailable': 'Position indisponible',
 		'Map.Title': 'Carte',
 		'Marker.Title': 'Repère',
 		'NavigationControl.ZoomIn': 'Zoomer',
@@ -100,7 +100,13 @@
 	const markerObjs = new Map<string, MlMarker>();
 	const markerData = new Map<string, MapMarker>();
 	let pinMarker: MlMarker | null = null;
-	let geolocate: GeolocateControl | null = null;
+	/** Bouton « Me localiser » et point « ta position » (si `locate`). */
+	let locateButton: HTMLButtonElement | null = null;
+	let userMarker: MlMarker | null = null;
+	let locating = false;
+
+	/** Zoom quand on centre la carte sur l'utilisateur. */
+	const LOCATE_ZOOM = 15;
 
 	/* ---------- API publique (bind:this) ---------- */
 
@@ -123,7 +129,7 @@
 
 	/** Relance la géolocalisation (si `locate`). */
 	export function locateMe() {
-		geolocate?.trigger();
+		if (locate && map) locateUser(map);
 	}
 
 	/* ---------- Création de la carte ---------- */
@@ -163,18 +169,11 @@
 				});
 
 				if (locate) {
-					geolocate = new ml.GeolocateControl({
-						positionOptions: { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 },
-						fitBoundsOptions: { maxZoom: 15 },
-						trackUserLocation: false,
-						showAccuracyCircle: false
-					});
-					m.addControl(geolocate, 'bottom-right');
-					geolocate.on('geolocate', (e) =>
-						onlocate?.({ lat: e.coords.latitude, lon: e.coords.longitude })
-					);
-					geolocate.on('error', () => onlocateerror?.());
-					m.once('load', () => geolocate?.trigger());
+					// Pas le GeolocateControl de MapLibre : il se désactive quand la Permissions API
+					// dit `denied`, ce que Chrome sur iPhone répond avant même d'avoir demandé.
+					m.addControl(locateControl(m), 'bottom-right');
+					// Une vraie demande au chargement, quel que soit l'état annoncé ; en cas d'échec, la vue par défaut reste.
+					m.once('load', () => locateUser(m));
 				}
 
 				m.on('click', (e) => onmapclick?.({ lat: e.lngLat.lat, lon: e.lngLat.lng }));
@@ -199,9 +198,69 @@
 			markerObjs.clear();
 			markerData.clear();
 			pinMarker = null;
-			geolocate = null;
+			locateButton = null;
+			userMarker = null;
+			locating = false;
 		};
 	});
+
+	/* ---------- Me localiser ---------- */
+
+	/** Même bouton que le contrôle de MapLibre (mêmes classes, donc même icône), en bas à droite. */
+	function locateControl(m: MlMap): IControl {
+		const group = document.createElement('div');
+		group.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+		const button = document.createElement('button');
+		button.type = 'button';
+		button.className = 'maplibregl-ctrl-geolocate';
+		button.title = 'Me localiser';
+		button.setAttribute('aria-label', 'Me localiser');
+		button.innerHTML = '<span class="maplibregl-ctrl-icon" aria-hidden="true"></span>';
+		button.addEventListener('click', () => locateUser(m));
+		group.append(button);
+		locateButton = button;
+		return {
+			onAdd: () => group,
+			onRemove: () => {
+				group.remove();
+				locateButton = null;
+			}
+		};
+	}
+
+	/** Demande la position, centre la carte dessus et y pose le point. En cas d'échec, la carte ne bouge pas. */
+	async function locateUser(m: MlMap) {
+		if (locating) return;
+		locating = true;
+		locateButton?.classList.add('maplibregl-ctrl-geolocate-waiting');
+		locateButton?.setAttribute('aria-busy', 'true');
+		try {
+			const p = await getPosition();
+			if (map !== m) return; // carte démontée entre-temps
+			showUser(m, p);
+			flyTo(p, LOCATE_ZOOM);
+			onlocate?.(p);
+		} catch {
+			if (map === m) onlocateerror?.();
+		} finally {
+			locating = false;
+			locateButton?.classList.remove('maplibregl-ctrl-geolocate-waiting');
+			locateButton?.removeAttribute('aria-busy');
+		}
+	}
+
+	function showUser(m: MlMap, p: LatLon) {
+		if (!ml) return;
+		if (userMarker) {
+			userMarker.setLngLat([p.lon, p.lat]);
+			return;
+		}
+		const el = document.createElement('div');
+		el.className = 'bm-me';
+		el.setAttribute('role', 'img');
+		el.setAttribute('aria-label', 'Ta position');
+		userMarker = new ml.Marker({ element: el, anchor: 'center' }).setLngLat([p.lon, p.lat]).addTo(m);
+	}
 
 	/* ---------- Pastilles ---------- */
 
@@ -424,6 +483,21 @@
 	}
 	.map-view :global(.bm-pin.is-dragging svg) {
 		transform: translateY(-10px) scale(1.08);
+	}
+
+	/* Point « ta position » : racine placée par MapLibre (transform en ligne), donc ni transform
+	   ni position relative ici ; le halo est une ombre, et il laisse passer les taps vers la carte. */
+	.map-view :global(.bm-me) {
+		position: absolute;
+		width: 18px;
+		height: 18px;
+		border: 3px solid var(--foam);
+		border-radius: 50%;
+		background: var(--accent);
+		box-shadow:
+			0 0 0 7px color-mix(in srgb, var(--accent) 30%, transparent),
+			0 1px 4px rgb(0 0 0 / 0.45);
+		pointer-events: none;
 	}
 
 	/* ---------- Contrôles MapLibre aux couleurs du site ---------- */
