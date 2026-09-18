@@ -102,7 +102,7 @@
 </script>
 
 <svelte:head>
-	<title>Modifier un passage · Barathon</title>
+	<title>Modifier un passage · {data.bar.name} · Barathon</title>
 </svelte:head>
 
 <div class="container page">
