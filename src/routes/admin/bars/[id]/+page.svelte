@@ -69,7 +69,8 @@
 			</p>
 		</header>
 
-		{#if data.merged}
+		<!-- Après une autre action (renommer, déplacer…), le bandeau de fusion n'a plus lieu d'être. -->
+		{#if data.merged && !form}
 			<p class="notice" role="status">
 				Fusion faite&nbsp;: {plural(data.merged.count, 'passage')} de «&nbsp;{data.merged.from}&nbsp;»
 				{data.merged.count > 1 ? 'sont passés' : 'est passé'} ici, et «&nbsp;{data.merged.from}&nbsp;» est supprimé.
