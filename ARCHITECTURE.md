@@ -27,7 +27,7 @@ Reference for anyone building pages on top of the foundation. Product rules live
 | `/api/bars/nearby`, `/api/bars/search` | Our bars as JSON (exist, see below). | |
 | `/dev/components` | Component showcase, dev only (404 in prod). | |
 
-`src/routes/+page.svelte` is a placeholder: the home page owner replaces it.
+Every `+page.svelte` and `+error.svelte` sets its own `<title>` (`"<page> · Barathon"`) in `<svelte:head>`; the layout sets none. Svelte keeps a single SSR `<title>` chosen by tree position, and a page that `bind:`s to a child component renders in a detached copy, so a layout title would win until JS loads. `src/routes/titles.test.ts` enforces the rule.
 
 ## File map
 
@@ -67,8 +67,9 @@ src/
       api.ts            JSON shape of /api/bars/*
     components/         shared Svelte components (see below)
   routes/
-    +layout.svelte      fonts, header (wordmark → /, Barathoniens, Noter), footer (admin link)
-    +page.svelte        placeholder home
+    +layout.svelte      fonts, header (wordmark → /, Barathoniens, Noter), footer (admin link); no <title>
+    +error.svelte       generic French error page
+    +page.svelte        home: map ⇄ ranking, filters
     health/+server.ts
     api/bars/nearby/+server.ts
     api/bars/search/+server.ts
