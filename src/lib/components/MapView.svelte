@@ -80,6 +80,18 @@
 		class: className = ''
 	}: Props = $props();
 
+	/** Textes des contrôles MapLibre (anglais par défaut). */
+	const MAP_LOCALE = {
+		'AttributionControl.ToggleAttribution': 'Afficher ou masquer les crédits',
+		'GeolocateControl.FindMyLocation': 'Me localiser',
+		'GeolocateControl.LocationNotAvailable': 'Position indisponible',
+		'Map.Title': 'Carte',
+		'Marker.Title': 'Repère',
+		'NavigationControl.ZoomIn': 'Zoomer',
+		'NavigationControl.ZoomOut': 'Dézoomer',
+		'Popup.Close': 'Fermer'
+	};
+
 	let container: HTMLDivElement;
 	let map = $state<MlMap | null>(null);
 	let ml: typeof import('maplibre-gl') | null = null;
@@ -139,10 +151,16 @@
 					attributionControl: { compact: false, customAttribution: '© OpenStreetMap contributors' },
 					dragRotate: false,
 					pitchWithRotate: false,
-					touchPitch: false
+					touchPitch: false,
+					locale: MAP_LOCALE
 				});
 				m.touchZoomRotate.disableRotation();
 				m.keyboard.disableRotation();
+				// Le style sombre d'OpenFreeMap cite des icônes absentes de son sprite (« circle-11 ») :
+				// une image vide évite l'avertissement MapLibre, et l'icône restait invisible de toute façon.
+				m.setMissingStyleImageResolver((id) => {
+					if (!m.hasImage(id)) m.addImage(id, { width: 1, height: 1, data: new Uint8Array(4) });
+				});
 
 				if (locate) {
 					geolocate = new ml.GeolocateControl({
